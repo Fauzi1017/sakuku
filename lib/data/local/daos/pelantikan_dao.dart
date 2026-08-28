@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/server_time.dart';
 import '../database.dart';
 import '../tables/pelantikan_tables.dart';
 import '../tables/sync_tables.dart';
@@ -63,5 +64,26 @@ class PelantikanDao extends DatabaseAccessor<AppDatabase>
         }),
       ),
     );
+  }
+
+  /// Insert-or-ignore merge from `/api/sync/pull` — a pelantikan record is
+  /// never edited once created, so duplicates are simply skipped.
+  Future<void> mergeFromPull(List<dynamic> rows) async {
+    await transaction(() async {
+      for (final row in rows.cast<Map<String, dynamic>>()) {
+        await into(pelantikans).insert(
+          PelantikansCompanion.insert(
+            id: row['id'] as String,
+            anggotaId: row['anggota_id'] as String,
+            jenis: row['jenis'] as String,
+            referensiLabel: row['referensi_label'] as String,
+            tanggal: parseServerDateTime(row['tanggal'] as String),
+            pembinaId: row['pembina_id'] as String,
+            catatan: Value(row['catatan'] as String?),
+          ),
+          mode: InsertMode.insertOrIgnore,
+        );
+      }
+    });
   }
 }

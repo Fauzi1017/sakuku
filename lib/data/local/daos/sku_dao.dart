@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/constants/domain.dart';
+import '../../../core/utils/server_time.dart';
 import '../database.dart';
 import '../tables/pengguna_tables.dart';
 import '../tables/sku_tables.dart';
@@ -223,6 +224,43 @@ class SkuDao extends DatabaseAccessor<AppDatabase> with _$SkuDaoMixin {
       disahkan: disahkan,
       siapDilantik: items.isNotEmpty && disahkan == items.length,
     );
+  }
+
+  /// Merges a `/api/sync/pull` response into local storage. Progress rows
+  /// are upserted (server is authoritative, same derivation rule as
+  /// [appendEvent]); events are insert-or-ignore since the log is
+  /// append-only and immutable once written.
+  Future<void> mergeFromPull({
+    required List<dynamic> skuProgress,
+    required List<dynamic> skuEventRows,
+  }) async {
+    await transaction(() async {
+      for (final row in skuProgress.cast<Map<String, dynamic>>()) {
+        await into(skuProgresses).insertOnConflictUpdate(
+          SkuProgressesCompanion.insert(
+            id: row['id'] as String,
+            anggotaId: row['anggota_id'] as String,
+            skuItemId: row['sku_item_id'] as String,
+            status: Value(row['status'] as String),
+            updatedAt: Value(parseServerDateTime(row['updated_at'] as String)),
+          ),
+        );
+      }
+      for (final row in skuEventRows.cast<Map<String, dynamic>>()) {
+        await into(skuEvents).insert(
+          SkuEventsCompanion.insert(
+            id: row['id'] as String,
+            skuProgressId: row['sku_progress_id'] as String,
+            aktorId: row['aktor_id'] as String,
+            aksi: row['aksi'] as String,
+            catatan: Value(row['catatan'] as String?),
+            deviceId: Value(row['device_id'] as String?),
+            createdAt: Value(parseServerDateTime(row['created_at'] as String)),
+          ),
+          mode: InsertMode.insertOrIgnore,
+        );
+      }
+    });
   }
 }
 
