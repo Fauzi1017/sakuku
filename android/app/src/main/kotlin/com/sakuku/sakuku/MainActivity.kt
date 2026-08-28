@@ -1,0 +1,5 @@
+package com.sakuku.sakuku
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
