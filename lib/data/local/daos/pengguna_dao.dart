@@ -11,6 +11,14 @@ class PenggunaDao extends DatabaseAccessor<AppDatabase>
     with _$PenggunaDaoMixin {
   PenggunaDao(super.db);
 
+  /// The single gudep this device knows about — used by local-only
+  /// registration (offline, or no backend configured) since v1 is
+  /// single-gudep (PRD §3) and there's no gudep picker in the UI.
+  Future<String?> firstGudepId() async {
+    final row = await (select(gudeps)..limit(1)).getSingleOrNull();
+    return row?.id;
+  }
+
   Future<Pengguna?> findByEmail(String email) =>
       (select(penggunas)..where((t) => t.email.equals(email)))
           .getSingleOrNull();

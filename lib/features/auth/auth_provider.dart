@@ -1,5 +1,7 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/constants/domain.dart';
 import '../../core/network/api_client.dart';
@@ -8,6 +10,8 @@ import '../../core/providers/database_providers.dart';
 import '../../core/providers/network_providers.dart';
 import '../../core/utils/password_hash.dart';
 import '../../data/local/database.dart';
+
+const _uuid = Uuid();
 
 sealed class AuthState {
   const AuthState();
@@ -107,6 +111,92 @@ class AuthController extends StateNotifier<AuthState> {
     await _persistSession(penggunaId: pengguna.id, token: null);
     final anggota = await dao.anggotaForPengguna(pengguna.id);
     state = AuthAuthenticated(pengguna, anggota);
+  }
+
+  /// Self-registration for a new peserta_didik. Mirrors [login]'s
+  /// online-first shape: tries the API (which also rejects a duplicate
+  /// email), caches the result locally, and signs the new account in
+  /// immediately. Without a reachable backend, the account is created
+  /// directly in the local database instead — there's nothing to defer
+  /// to, unlike a login retry — under the single gudep already known to
+  /// this device (see `PenggunaDao.firstGudepId`).
+  Future<void> register({
+    required String nama,
+    required String email,
+    required String password,
+    String? nis,
+    required String golongan,
+    required String tingkatSaatIni,
+    String? reguPasukan,
+  }) async {
+    state = const AuthLoading();
+    final dao = ref.read(penggunaDaoProvider);
+
+    final existingLocally = await dao.findByEmail(email.trim());
+    if (existingLocally != null) {
+      state = const AuthUnauthenticated(error: 'Email sudah terdaftar.');
+      return;
+    }
+
+    if (ApiConfig.isConfigured) {
+      try {
+        final result = await ref.read(apiClientProvider).register(
+              nama: nama,
+              email: email,
+              password: password,
+              nis: nis,
+              golongan: golongan,
+              tingkatSaatIni: tingkatSaatIni,
+              reguPasukan: reguPasukan,
+            );
+        await _cacheAccountLocally(result, password);
+        await _persistSession(
+          penggunaId: result.pengguna['id'] as String,
+          token: result.token,
+        );
+        await _loadAuthenticatedState(result.pengguna['id'] as String, token: result.token);
+        return;
+      } on ApiRequestException catch (e) {
+        state = AuthUnauthenticated(error: e.message);
+        return;
+      } on ApiUnreachableException {
+        // Offline — register locally below; will not exist on the server
+        // until this device's account data has a path to sync there too.
+      }
+    }
+
+    final gudepId = await dao.firstGudepId();
+    if (gudepId == null) {
+      state = const AuthUnauthenticated(
+        error: 'Tidak ada data gudep di perangkat ini. Sambungkan ke internet untuk mendaftar.',
+      );
+      return;
+    }
+
+    final penggunaId = _uuid.v4();
+    await dao.insertPengguna(
+      PenggunasCompanion.insert(
+        id: penggunaId,
+        gudepId: gudepId,
+        nama: nama,
+        email: Value(email.trim()),
+        passwordHash: PasswordHash.hash(password),
+        role: 'peserta_didik',
+      ),
+    );
+    await dao.insertAnggota(
+      AnggotasCompanion.insert(
+        id: _uuid.v4(),
+        penggunaId: penggunaId,
+        nis: Value(nis),
+        golongan: golongan,
+        tingkatSaatIni: Value(tingkatSaatIni),
+        reguPasukan: Value(reguPasukan),
+      ),
+    );
+
+    await _persistSession(penggunaId: penggunaId, token: null);
+    await _loadAuthenticatedState(penggunaId);
   }
 
   Future<void> _cacheAccountLocally(LoginResult result, String plainPassword) async {
