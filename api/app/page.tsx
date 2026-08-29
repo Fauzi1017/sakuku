@@ -11,6 +11,9 @@ export default function StatusPage() {
           <code>POST /api/auth/login</code>
         </li>
         <li>
+          <code>POST /api/auth/register</code>
+        </li>
+        <li>
           <code>GET /api/auth/me</code>
         </li>
         <li>

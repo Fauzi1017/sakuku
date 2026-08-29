@@ -7,6 +7,7 @@ import '../../materi/materi_library_screen.dart';
 import '../../shared/widgets/sync_status_chip.dart';
 import '../checklist/sku_checklist_screen.dart';
 import '../portofolio/portofolio_screen.dart';
+import 'beranda_screen.dart';
 
 class PesertaHomeScreen extends ConsumerStatefulWidget {
   const PesertaHomeScreen({super.key});
@@ -18,7 +19,7 @@ class PesertaHomeScreen extends ConsumerStatefulWidget {
 class _PesertaHomeScreenState extends ConsumerState<PesertaHomeScreen> {
   int _index = 0;
 
-  static const _titles = ['Checklist SKU', 'Materi', 'Portofolio'];
+  static const _titles = ['Beranda', 'Checklist SKU', 'Materi', 'Portofolio'];
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +40,11 @@ class _PesertaHomeScreenState extends ConsumerState<PesertaHomeScreen> {
 
     final anggota = auth.anggota!;
     final pages = [
+      BerandaScreen(
+        anggota: anggota,
+        namaPengguna: auth.pengguna.nama,
+        onOpenChecklist: () => setState(() => _index = 1),
+      ),
       SkuChecklistScreen(anggota: anggota),
       MateriLibraryScreen(anggotaId: anggota.id),
       PortofolioScreen(anggotaId: anggota.id),
@@ -64,6 +70,11 @@ class _PesertaHomeScreenState extends ConsumerState<PesertaHomeScreen> {
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Beranda',
+          ),
           NavigationDestination(
             icon: Icon(Icons.checklist_outlined),
             selectedIcon: Icon(Icons.checklist),

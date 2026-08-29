@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import 'auth_provider.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -132,7 +133,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             )
                           : const Text('Masuk'),
                     ),
-                    const SizedBox(height: AppSpacing.s6),
+                    const SizedBox(height: AppSpacing.s3),
+                    TextButton(
+                      onPressed: isLoading
+                          ? null
+                          : () => Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                              ),
+                      child: const Text('Belum punya akun? Daftar'),
+                    ),
+                    const SizedBox(height: AppSpacing.s3),
                     Text(
                       'Demo: peserta@sakuku.test / peserta123\n'
                       'pembina@sakuku.test / pembina123\n'

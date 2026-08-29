@@ -84,6 +84,42 @@ class ApiClient {
     );
   }
 
+  /// Self-registration (peserta_didik only — see PRD §4 personas; v1 is
+  /// single-gudep so there's no gudep picker, the server assigns the one
+  /// gudep it serves). Returns the same shape as [login] so the caller
+  /// can treat a successful registration as an immediate session.
+  Future<LoginResult> register({
+    required String nama,
+    required String email,
+    required String password,
+    String? nis,
+    required String golongan,
+    required String tingkatSaatIni,
+    String? reguPasukan,
+  }) async {
+    final response = await _send(
+      () => _client.post(
+        _uri('/api/auth/register'),
+        headers: _headers(),
+        body: jsonEncode({
+          'nama': nama,
+          'email': email,
+          'password': password,
+          if (nis != null) 'nis': nis,
+          'golongan': golongan,
+          'tingkatSaatIni': tingkatSaatIni,
+          if (reguPasukan != null) 'reguPasukan': reguPasukan,
+        }),
+      ),
+    );
+    final body = _decodeOrThrow(response);
+    return LoginResult(
+      token: body['token'] as String,
+      pengguna: body['pengguna'] as Map<String, dynamic>,
+      anggota: body['anggota'] as Map<String, dynamic>?,
+    );
+  }
+
   Future<Map<String, dynamic>> syncPush({
     required String token,
     required String deviceId,
